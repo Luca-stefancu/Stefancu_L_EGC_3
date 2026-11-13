@@ -82,6 +82,48 @@ public class FpsCamera : Camera
         //           (W +forward, S -forward, D +_right, A -_right); (3) normalizați "move";
         //           (4) _position += move * viteză * dt (viteza crește de SprintFactor ori cu Shift stânga).
 
+        // (1) Calculez direcția "înainte": în modul mers, proiecția lui Front pe planul orizontal (Y=0)
+        Vector3 forward;
+        if (FreeFly)
+        {
+            forward = _front;   // în zbor liber, "înainte" este chiar direcția privirii
+        }
+        else
+        {
+            // în modul mers, proiectez Front pe planul orizontal (setez Y=0 și normalizez)
+            forward = new Vector3(_front.X, 0.0f, _front.Z).Normalized();
+        }
+
+        // (2) Calculez vectorul de deplasare din tastele apăsate
+        var move = Vector3.Zero;
+        if (keyboard.IsKeyDown(Keys.W)) move += forward;
+        if (keyboard.IsKeyDown(Keys.S)) move -= forward;
+        if (keyboard.IsKeyDown(Keys.D)) move += _right;
+        if (keyboard.IsKeyDown(Keys.A)) move -= _right;
+
+        // în zbor liber: Space urcă, Ctrl stânga coboară
+        if (FreeFly)
+        {
+            if (keyboard.IsKeyDown(Keys.Space)) move += WorldUp;
+            if (keyboard.IsKeyDown(Keys.LeftControl)) move -= WorldUp;
+        }
+
+        // (3) Normalizez vectorul de deplasare (pentru a nu merge mai repede în diagonală)
+        if (move != Vector3.Zero)
+        {
+            move = move.Normalized();
+
+            // (4) Calculez viteza efectivă, ținând cont de Shift
+            float speed = MoveSpeed;
+            if (keyboard.IsKeyDown(Keys.LeftShift))
+            {
+                speed *= SprintFactor;
+            }
+
+            // Actualizez poziția
+            _position += move * speed * dt;
+        }
+
         // TODO 5.7 (facultativ): în zbor liber (FreeFly), "forward" este chiar _front,
         //           iar Space urcă și Ctrl stânga coboară (pe axa Y a lumii, WorldUp).
     }
