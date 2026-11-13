@@ -53,12 +53,12 @@ public static class Shapes
     public static Mesh Axes(float length)
     {
         var vertices = new float[6 * Mesh.FloatsPerVertex];
-        SetVertex(vertices, 0, 0, 0, 0,        1, 0, 0);
-        SetVertex(vertices, 1, length, 0, 0,   1, 0, 0);
-        SetVertex(vertices, 2, 0, 0, 0,        0, 1, 0);
-        SetVertex(vertices, 3, 0, length, 0,   0, 1, 0);
-        SetVertex(vertices, 4, 0, 0, 0,        0, 0, 1);
-        SetVertex(vertices, 5, 0, 0, length,   0, 0, 1);
+        SetVertex(vertices, 0, 0, 0, 0, 1, 0, 0);           // X axis start (red)
+        SetVertex(vertices, 1, length, 0, 0, 1, 0, 0);      // X axis end (red)
+        SetVertex(vertices, 2, 0, 0, 0, 0, 1, 0);           // Y axis start (green)
+        SetVertex(vertices, 3, 0, length, 0, 0, 1, 0);      // Y axis end (green)
+        SetVertex(vertices, 4, 0, 0, 0, 0, 0, 1);           // Z axis start (blue)
+        SetVertex(vertices, 5, 0, 0, length, 0, 0, 1);      // Z axis end (blue)
         uint[] indices = { 0, 1, 2, 3, 4, 5 };
         return new Mesh(vertices, indices, PrimitiveType.Lines);
     }
@@ -212,14 +212,120 @@ public static class Shapes
     }
 
     /// <summary>
-    /// FACULTATIV (TODO 5.8): cilindrul cu axa pe Y, de rază <paramref name="radius"/> și înălțime
-    /// <paramref name="height"/>, cu <paramref name="segments"/> segmente pe circumferință.
-    /// Suprafața laterală = o grilă cu 2 rânduri (ca sfera, cu un singur "stack"); capacele = evantaie.
+    /// Cilindrul cu raza 1 și înălțimea 1, centrat în origine.
+    /// Suprafața laterală: o grilă cu 1 rând de celule (2 rânduri de vârfuri, sus și jos).
+    /// Capacele sunt evantaie de triunghiuri (ca poligonul regulat din laboratorul 3).
     /// </summary>
-    public static Mesh Cylinder(float radius, float height, int segments)
+    /// <param name="slices">Numărul de felii verticale (meridiane), de exemplu 32.</param>
+    public static Mesh Cylinder(int slices = 32)
     {
-        // TODO 5.8 (facultativ): vârfurile și indicii cilindrului; până atunci, o formă goală.
-        return new Mesh(Array.Empty<float>(), Array.Empty<uint>());
+        const float radius = 1.0f;
+        const float height = 1.0f;
+        const float halfHeight = height / 2.0f;
+
+        int columns = slices + 1;   // ultima coloană închide cilindrul (cusătura)
+        int verticesCount = 2 * columns +    // vârfurile suprafeței laterale (2 rânduri)
+                            2 * (1 + slices); // vârfurile capacelor (centru + perimetrul)
+        var vertices = new float[verticesCount * Mesh.FloatsPerVertex];
+        var indices = new uint[slices * 6 +  // suprafața laterală: slices × 2 triunghiuri
+                               slices * 3 +   // capa inferioară: slices triunghiuri
+                               slices * 3];   // capa superioară: slices triunghiuri
+
+        int v = 0;
+        int k = 0;
+
+        // 1. Suprafața laterală: grilă cu stacks = 1
+        var lateralColor = new Color4(0.8f, 0.3f, 0.3f, 1.0f);
+        int bottomStart = 0;
+        int topStart = columns;
+
+        for (int j = 0; j < columns; j++)
+        {
+            float u = (float)j / slices;
+            float angle = u * 2.0f * MathF.PI;
+            float x = radius * MathF.Cos(angle);
+            float z = -radius * MathF.Sin(angle);
+
+            // vârf jos (-Y)
+            SetVertex(vertices, v++, x, -halfHeight, z, lateralColor);
+            // vârf sus (+Y)
+            SetVertex(vertices, v++, x, halfHeight, z, lateralColor);
+        }
+
+        // indicii suprafeței laterale: fiecare celulă = 2 triunghiuri
+        for (int j = 0; j < slices; j++)
+        {
+            uint bottomLeft = (uint)(bottomStart + j * 2);
+            uint bottomRight = (uint)(bottomStart + (j + 1) * 2);
+            uint topLeft = (uint)(topStart + j * 2);
+            uint topRight = (uint)(topStart + (j + 1) * 2);
+
+            // triunghiul 1: bottomLeft, bottomRight, topRight
+            indices[k++] = bottomLeft;
+            indices[k++] = bottomRight;
+            indices[k++] = topRight;
+
+            // triunghiul 2: topRight, topLeft, bottomLeft
+            indices[k++] = topRight;
+            indices[k++] = topLeft;
+            indices[k++] = bottomLeft;
+        }
+
+        // 2. Capa inferioară (-Y): evantai de triunghiuri
+        int bottomCapCenter = v;
+        SetVertex(vertices, v++, 0.0f, -halfHeight, 0.0f, new Color4(0.3f, 0.8f, 0.3f, 1.0f));
+        int bottomCapStart = v;
+
+        for (int j = 0; j < columns; j++)
+        {
+            float u = (float)j / slices;
+            float angle = u * 2.0f * MathF.PI;
+            float x = radius * MathF.Cos(angle);
+            float z = -radius * MathF.Sin(angle);
+            SetVertex(vertices, v++, x, -halfHeight, z, new Color4(0.3f, 0.8f, 0.3f, 1.0f));
+        }
+
+        // triunghiuri pentru capa inferioară
+        for (int j = 0; j < slices; j++)
+        {
+            uint center = (uint)bottomCapCenter;
+            uint curr = (uint)(bottomCapStart + j);
+            uint next = (uint)(bottomCapStart + j + 1);
+
+            // privite din -Y: trebuie să fie în sens trigonometric
+            indices[k++] = next;
+            indices[k++] = curr;
+            indices[k++] = center;
+        }
+
+        // 3. Capa superioară (+Y): evantai de triunghiuri
+        int topCapCenter = v;
+        SetVertex(vertices, v++, 0.0f, halfHeight, 0.0f, new Color4(0.3f, 0.3f, 0.8f, 1.0f));
+        int topCapStart = v;
+
+        for (int j = 0; j < columns; j++)
+        {
+            float u = (float)j / slices;
+            float angle = u * 2.0f * MathF.PI;
+            float x = radius * MathF.Cos(angle);
+            float z = -radius * MathF.Sin(angle);
+            SetVertex(vertices, v++, x, halfHeight, z, new Color4(0.3f, 0.3f, 0.8f, 1.0f));
+        }
+
+        // triunghiuri pentru capa superioară
+        for (int j = 0; j < slices; j++)
+        {
+            uint center = (uint)topCapCenter;
+            uint curr = (uint)(topCapStart + j);
+            uint next = (uint)(topCapStart + j + 1);
+
+            // privite din +Y: trebuie să fie în sens trigonometric
+            indices[k++] = curr;
+            indices[k++] = next;
+            indices[k++] = center;
+        }
+
+        return new Mesh(vertices, indices);
     }
 
     // =====================================================================================
