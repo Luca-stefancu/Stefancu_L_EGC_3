@@ -64,14 +64,19 @@ public class FpsCamera : Camera
         //               Atenție: pe ecran Y crește în jos, iar pitch pozitiv înseamnă privire în sus.
         //               Apoi limitați pitch-ul la intervalul [-MaxPitch, MaxPitch].
 
+        Yaw += mouseDelta.X * MouseSensitivity;
+        Pitch -= mouseDelta.Y * MouseSensitivity;
+        Pitch = MathHelper.Clamp(Pitch, -MaxPitch, MaxPitch);
 
         UpdateVectors();
 
         // --- 2. FOV: rotița mouse-ului --------------------------------------------
 
-        // TODO 5.1 (c): rotița în sus (ScrollDelta.Y > 0) micșorează FOV-ul (efect de zoom)
-        //               (folosiți ChangeFov din clasa Camera și FovStep)
-
+        // Rotița în sus (ScrollDelta.Y > 0) micșorează FOV-ul (efect de zoom)
+        if (mouse.ScrollDelta.Y != 0)
+        {
+            ChangeFov(-mouse.ScrollDelta.Y * FovStep);
+        }
 
         // --- 3. Deplasarea: W A S D ---------------------------------------------------
 
