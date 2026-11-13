@@ -60,13 +60,9 @@ public class FpsCamera : Camera
     {
         // --- 1. Orientarea: mouse-ul modifică yaw și pitch -------------------------
 
-        // TODO 5.5 (a): deplasarea pe orizontală modifică yaw, cea pe verticală modifică pitch.
-        //               Atenție: pe ecran Y crește în jos, iar pitch pozitiv înseamnă privire în sus.
-        //               Apoi limitați pitch-ul la intervalul [-MaxPitch, MaxPitch].
-
-        Yaw += mouseDelta.X * MouseSensitivity;
-        Pitch -= mouseDelta.Y * MouseSensitivity;
-        Pitch = MathHelper.Clamp(Pitch, -MaxPitch, MaxPitch);
+        Yaw += mouseDelta.X * MouseSensitivity;           // Horizontal movement changes Yaw
+        Pitch -= mouseDelta.Y * MouseSensitivity;         // Vertical movement changes Pitch (inverted sign)
+        Pitch = MathHelper.Clamp(Pitch, -MaxPitch, MaxPitch);  // Limit pitch to ±MaxPitch
 
         UpdateVectors();
 
@@ -98,9 +94,24 @@ public class FpsCamera : Camera
         // TODO 5.5 (b): Front din yaw și pitch (formula din secțiunea 5.2), apoi Right și Up
         //               prin produse vectoriale; toți trei normalizați.
         //               Până atunci camera privește mereu spre -Z.
-        _front = -Vector3.UnitZ;
-        _right = Vector3.UnitX;
-        _up = Vector3.UnitY;
+        
+        // Convertim unghiurile din grade în radiani
+        float yawRad = MathHelper.DegreesToRadians(Yaw);
+        float pitchRad = MathHelper.DegreesToRadians(Pitch);
+        
+        // Calculez Front din formula: front = (cos(yaw) * cos(pitch), sin(pitch), sin(yaw) * cos(pitch))
+        float cosYaw = MathF.Cos(yawRad);
+        float sinYaw = MathF.Sin(yawRad);
+        float cosPitch = MathF.Cos(pitchRad);
+        float sinPitch = MathF.Sin(pitchRad);
+        
+        _front = new Vector3(cosYaw * cosPitch, sinPitch, sinYaw * cosPitch).Normalized();
+        
+        // Calculez Right prin produs vectorial: right = normalize(front × worldUp)
+        _right = Vector3.Cross(_front, WorldUp).Normalized();
+        
+        // Calculez Up prin produs vectorial: up = normalize(right × front)
+        _up = Vector3.Cross(_right, _front).Normalized();
     }
 
     public override void Reset()
